@@ -3,7 +3,7 @@
 Wishlist Studio turns product links into shareable wishlists. Product details and wishlist data are
 stored in PostgreSQL; cached product images remain in `./data/images`.
 
-## Setup
+## Setup 
 
 1. Install dependencies with `npm install`.
 2. Start the local PostgreSQL service:
