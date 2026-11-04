@@ -1,0 +1,180 @@
+name: Deploy (OCI)
+
+on:
+  push:
+    branches: [exp/main, main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: oci-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    environment: production
+
+    env:
+      IMAGE_NAME: wishlist-studio-app
+      IMAGE_TAG: deploy
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate OCI secrets
+        shell: bash
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_SSH_USER: ${{ secrets.OCI_SSH_USER }}
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_REMOTE_APP_DIR: ${{ secrets.OCI_REMOTE_APP_DIR }}
+          OCI_SSH_PORT: ${{ secrets.OCI_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+          [[ -n "${OCI_HOST}" ]] || missing+=("OCI_HOST")
+          [[ -n "${OCI_SSH_USER}" ]] || missing+=("OCI_SSH_USER")
+          [[ -n "${OCI_SSH_KEY}" ]] || missing+=("OCI_SSH_KEY")
+          [[ -n "${OCI_REMOTE_APP_DIR}" ]] || missing+=("OCI_REMOTE_APP_DIR")
+
+          if ((${#missing[@]} > 0)); then
+            echo "Missing required GitHub Actions secrets:" >&2
+            printf ' - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_SSH_PORT: ${{ secrets.OCI_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$OCI_SSH_KEY" > ~/.ssh/oci_key
+          chmod 600 ~/.ssh/oci_key
+          ssh-keygen -R "[$OCI_HOST]:$OCI_SSH_PORT" >/dev/null 2>&1 || true
+          ssh-keyscan -H -p "$OCI_SSH_PORT" "$OCI_HOST" >> ~/.ssh/known_hosts
+
+      - name: Detect OCI architecture
+        id: oci
+        shell: bash
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_SSH_USER: ${{ secrets.OCI_SSH_USER }}
+          OCI_SSH_PORT: ${{ secrets.OCI_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          remote_arch="$(ssh -i ~/.ssh/oci_key -p "$OCI_SSH_PORT" "$OCI_SSH_USER@$OCI_HOST" 'uname -m')"
+          case "$remote_arch" in
+            x86_64) platform="linux/amd64" ;;
+            aarch64|arm64) platform="linux/arm64" ;;
+            *)
+              echo "Unsupported OCI architecture: $remote_arch" >&2
+              exit 1
+              ;;
+          esac
+          echo "platform=$platform" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image for OCI
+        shell: bash
+        env:
+          TARGET_PLATFORM: ${{ steps.oci.outputs.platform }}
+        run: |
+          set -euo pipefail
+          docker version
+          docker buildx version
+          docker buildx create --use --name oci-builder >/dev/null 2>&1 || docker buildx use oci-builder
+          docker buildx inspect --bootstrap >/dev/null
+          docker buildx build \
+            --platform "$TARGET_PLATFORM" \
+            -t "$IMAGE_NAME:$IMAGE_TAG" \
+            --load \
+            --progress=plain \
+            .
+
+      - name: Export image
+        shell: bash
+        run: docker save "$IMAGE_NAME:$IMAGE_TAG" | gzip > image.tar.gz
+
+      - name: Transfer image and Compose file to OCI
+        shell: bash
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_SSH_USER: ${{ secrets.OCI_SSH_USER }}
+          OCI_REMOTE_APP_DIR: ${{ secrets.OCI_REMOTE_APP_DIR }}
+          OCI_SSH_PORT: ${{ secrets.OCI_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i ~/.ssh/oci_key
+            -p "$OCI_SSH_PORT"
+            -o BatchMode=yes
+            -o ConnectTimeout=20
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile=~/.ssh/known_hosts
+          )
+
+          ssh "${ssh_options[@]}" "$OCI_SSH_USER@$OCI_HOST" \
+            "mkdir -p '$OCI_REMOTE_APP_DIR' && test -w '$OCI_REMOTE_APP_DIR'"
+
+          rsync -av --partial --progress \
+            -e "ssh ${ssh_options[*]}" \
+            image.tar.gz docker-compose.yml \
+            "$OCI_SSH_USER@$OCI_HOST:$OCI_REMOTE_APP_DIR/"
+
+      - name: Deploy on OCI
+        shell: bash
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_SSH_USER: ${{ secrets.OCI_SSH_USER }}
+          OCI_REMOTE_APP_DIR: ${{ secrets.OCI_REMOTE_APP_DIR }}
+          OCI_SSH_PORT: ${{ secrets.OCI_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/oci_key -p "$OCI_SSH_PORT" \
+            "$OCI_SSH_USER@$OCI_HOST" \
+            "set -euo pipefail
+              cd '$OCI_REMOTE_APP_DIR'
+
+              if docker info >/dev/null 2>&1; then
+                DOCKER='docker'
+              elif sudo -n docker info >/dev/null 2>&1; then
+                DOCKER='sudo -n docker'
+              else
+                echo 'Docker is not usable by this SSH user.' >&2
+                exit 1
+              fi
+
+              \$DOCKER load -i image.tar.gz
+              rm -f image.tar.gz
+
+              if \$DOCKER compose version >/dev/null 2>&1; then
+                COMPOSE=\"\$DOCKER compose\"
+              elif command -v docker-compose >/dev/null 2>&1; then
+                COMPOSE='docker-compose'
+                if ! \$COMPOSE version >/dev/null 2>&1 && sudo -n \$COMPOSE version >/dev/null 2>&1; then
+                  COMPOSE='sudo -n docker-compose'
+                fi
+              else
+                echo 'Docker Compose is not installed on the server.' >&2
+                exit 1
+              fi
+
+              test -f .env || {
+                echo 'Missing $OCI_REMOTE_APP_DIR/.env. Provision production environment variables before deploying.' >&2
+                exit 1
+              }
+
+              \$COMPOSE up -d --no-deps --force-recreate --remove-orphans app
+              \$DOCKER image prune -f"
+
+      - name: Clean up local image archive
+        if: always()
+        shell: bash
+        run: rm -f image.tar.gz

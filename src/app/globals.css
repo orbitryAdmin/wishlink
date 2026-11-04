@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f2ea;
+  --foreground: #1c1917;
+  --card: #fffdf9;
+  --muted: #78716c;
+  --line: #e7ded2;
+  --accent: #c2410c;
+  --accent-soft: #fbe4d8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(194, 65, 12, 0.07), transparent 32rem),
+    radial-gradient(circle at 85% 10%, rgba(120, 113, 108, 0.08), transparent 28rem);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: #f3c9b7;
+}
+
+@layer components {
+  .field {
+    width: 100%;
+    border-radius: 0.9rem;
+    border: 1px solid var(--line);
+    background: rgba(255, 253, 249, 0.85);
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--foreground);
+    outline: none;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      background 150ms ease;
+  }
+
+  .field:focus {
+    border-color: var(--accent);
+    background: #fffdf9;
+    box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.12);
+  }
+
+  .field::placeholder {
+    color: #a8a29e;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    background: var(--accent);
+    padding: 0.7rem 1.2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fffaf5;
+    transition:
+      background 150ms ease,
+      transform 150ms ease;
+  }
+
+  .btn-primary:hover {
+    background: #9a3412;
+  }
+
+  .btn-primary:active {
+    transform: translateY(1px);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 253, 249, 0.8);
+    padding: 0.6rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--foreground);
+    transition:
+      border-color 150ms ease,
+      background 150ms ease;
+  }
+
+  .btn-secondary:hover {
+    border-color: #c9bbab;
+    background: #fffdf9;
+  }
+}

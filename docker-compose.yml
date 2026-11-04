@@ -1,0 +1,17 @@
+services:
+  app:
+    image: wishlist-studio-app:deploy
+    container_name: wishlist_studio_app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 3002
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "3002:3002"
+    volumes:
+      - wishapp-data:/wishApp/data
+
+volumes:
+  wishapp-data:
