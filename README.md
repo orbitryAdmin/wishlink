@@ -28,6 +28,8 @@ stored in PostgreSQL; cached product images remain in `./data/images`.
    ```
 
 The app runs on `http://localhost:3002` in development and production.
+`GET /health` checks PostgreSQL connectivity and returns `200` when ready or `503` when the database
+is unavailable.
 
 The app requires `DATABASE_URL` both when applying the schema and when running. The database
 connection stays server-side; do not prefix it with `NEXT_PUBLIC_`. Optional Gemini settings and the
