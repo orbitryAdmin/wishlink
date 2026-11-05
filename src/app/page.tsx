@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowUpRight, Layers3, Link2, Sparkles } from "lucide-react";
 import { CreateWishlistForm } from "@/components/create-wishlist-form";
 import { listWishlists } from "@/lib/data";
+import { requireAdmin } from "@/lib/auth";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,8 @@ function formatDate(date: Date) {
 }
 
 export default async function Home() {
+  await requireAdmin();
+
   const wishlists = await listWishlists();
   const totalItems = wishlists.reduce((sum, wishlist) => sum + wishlist.itemCount, 0);
 
@@ -26,9 +30,12 @@ export default async function Home() {
           </span>
           <span className="font-serif text-xl tracking-tight">Wishlist Studio</span>
         </Link>
-        <span className="hidden rounded-full border border-line bg-card px-3 py-1.5 text-xs text-muted sm:inline-flex">
-          Creator dashboard
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="hidden rounded-full border border-line bg-card px-3 py-1.5 text-xs text-muted sm:inline-flex">
+            Creator dashboard
+          </span>
+          <SignOutButton />
+        </div>
       </header>
 
       <section className="mt-14 grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">

@@ -6,12 +6,16 @@ import { DeleteWishlistButton } from "@/components/delete-wishlist-button";
 import { ItemCard } from "@/components/item-card";
 import { ShareActions } from "@/components/share-actions";
 import { getItemsWithLooks, getWishlist } from "@/lib/data";
+import { requireAdmin } from "@/lib/auth";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export const dynamic = "force-dynamic";
 
 export default async function WishlistEditorPage({
   params,
 }: PageProps<"/wishlists/[id]">) {
+  await requireAdmin();
+
   const { id } = await params;
   const wishlist = await getWishlist(id);
 
@@ -33,7 +37,10 @@ export default async function WishlistEditorPage({
           </span>
           <span className="font-serif text-xl tracking-tight">Wishlist Studio</span>
         </Link>
-        <DeleteWishlistButton wishlistId={wishlist.id} />
+        <div className="flex items-center gap-3">
+          <SignOutButton />
+          <DeleteWishlistButton wishlistId={wishlist.id} />
+        </div>
       </header>
 
       <section className="mt-10">

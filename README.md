@@ -36,6 +36,18 @@ connection stays server-side; do not prefix it with `NEXT_PUBLIC_`. Optional Gem
 public app URL are documented in `.env.example`. The credentials in the Compose configuration are
 for local development only.
 
+## Manager login
+
+The manager dashboard and wishlist editor require a single username and password. Set
+`ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `AUTH_SECRET` in `.env` on the server. Generate a unique
+session signing secret with `openssl rand -base64 32`; `AUTH_SECRET` must be at least 32 characters.
+Do not use the example values in production. The login session is stored in a signed, HTTP-only
+cookie and expires after seven days.
+Changing the username, password, or signing secret invalidates existing sessions.
+
+The shared wishlist URLs at `/w/<slug>` remain public. The dashboard, editor pages, and all wishlist
+write actions require manager authentication.
+
 ## OCI deployment
 
 The GitHub Actions workflow at `.github/workflows/deploy-oci.yml` deploys on pushes to `main` using a
@@ -48,7 +60,8 @@ self-hosted runner. Configure these GitHub Actions secrets in the `production` e
 - `OCI_REMOTE_APP_DIR` — writable deployment directory on OCI; use a path ending in `wishApp`.
 
 Create an `.env` file in that OCI deployment directory with production values, including
-`DATABASE_URL` and `NEXT_PUBLIC_APP_URL`. The workflow intentionally does not copy secrets to OCI.
+`DATABASE_URL`, `NEXT_PUBLIC_APP_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `AUTH_SECRET`. The
+workflow intentionally does not copy secrets to OCI.
 The container uses `/wishApp` as its working directory, listens on port `3002`, runs pending Drizzle
 migrations at startup, and keeps cached images in a persistent Docker volume. Ensure the OCI network
 firewall allows port `3002` if the app should be reachable directly; normally put it behind a reverse

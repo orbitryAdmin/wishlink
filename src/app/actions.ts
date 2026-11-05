@@ -5,6 +5,7 @@ import { asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/lib/action-types";
+import { requireAdmin } from "@/lib/auth";
 import {
   countLooks,
   getItem,
@@ -80,6 +81,8 @@ export async function createWishlist(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  await requireAdmin();
+
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
 
@@ -111,6 +114,8 @@ export async function createWishlist(
 }
 
 export async function deleteWishlist(formData: FormData): Promise<void> {
+  await requireAdmin();
+
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -123,6 +128,8 @@ export async function addItem(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  await requireAdmin();
+
   const wishlistId = String(formData.get("wishlistId") ?? "");
   const rawUrl = String(formData.get("url") ?? "").trim();
   const category = normalizeCategory(String(formData.get("category") ?? ""));
@@ -213,6 +220,8 @@ export async function updateItem(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  await requireAdmin();
+
   const itemId = String(formData.get("itemId") ?? "");
   const item = await getItem(itemId);
 
@@ -296,6 +305,8 @@ export async function retryExtraction(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  await requireAdmin();
+
   const itemId = String(formData.get("itemId") ?? "");
   const item = await getItem(itemId);
 
@@ -349,6 +360,8 @@ export async function retryExtraction(
 }
 
 export async function deleteItem(formData: FormData): Promise<void> {
+  await requireAdmin();
+
   const itemId = String(formData.get("itemId") ?? "");
   const item = await getItem(itemId);
   if (!item) return;
@@ -359,6 +372,8 @@ export async function deleteItem(formData: FormData): Promise<void> {
 }
 
 export async function moveItem(formData: FormData): Promise<void> {
+  await requireAdmin();
+
   const itemId = String(formData.get("itemId") ?? "");
   const direction = String(formData.get("direction") ?? "");
   const item = await getItem(itemId);
@@ -395,6 +410,8 @@ export async function addLook(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  await requireAdmin();
+
   const itemId = String(formData.get("itemId") ?? "");
   const rawUrl = String(formData.get("url") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim();
@@ -430,6 +447,8 @@ export async function addLook(
 }
 
 export async function deleteLook(formData: FormData): Promise<void> {
+  await requireAdmin();
+
   const lookId = String(formData.get("lookId") ?? "");
   if (!lookId) return;
 
